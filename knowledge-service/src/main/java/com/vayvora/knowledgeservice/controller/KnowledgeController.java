@@ -77,9 +77,11 @@ public class KnowledgeController {
 class ErrorResponse {
     private String error;
     public ErrorResponse(String error) { this.error = error; }
+    public String getError() { return error; }
 }
 
 class SuccessResponse {
     private String message;
     public SuccessResponse(String message) { this.message = message; }
+    public String getMessage() { return message; }
 }

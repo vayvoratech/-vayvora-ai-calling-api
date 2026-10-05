@@ -3,53 +3,83 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # Services map their controllers under /api/v1/..., so paths are
+      # forwarded unchanged (no StripPrefix).
+      default-filters:
+        # Services also send CORS headers; keep a single copy for browsers.
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:*}
+            allowed-methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+            allowed-headers: "*"
+            max-age: 3600
       routes:
         - id: auth-service
-          uri: http://auth-service:8001
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8001}
           predicates:
             - Path=/api/v1/auth/**
-          filters:
-            - StripPrefix=2
-        
+
         - id: agent-service
-          uri: http://agent-service:8003
+          uri: ${AGENT_SERVICE_URL:http://agent-service:8003}
           predicates:
             - Path=/api/v1/agents/**
           filters:
             - name: AuthorizationFilter
-            - StripPrefix=2
-        
+
         - id: call-service
-          uri: http://call-service:8004
+          uri: ${CALL_SERVICE_URL:http://call-service:8004}
           predicates:
             - Path=/api/v1/calls/**
           filters:
             - name: AuthorizationFilter
-            - StripPrefix=2
-        
+
+        - id: voice-engine
+          uri: ${CALL_SERVICE_URL:http://call-service:8004}
+          predicates:
+            - Path=/api/v1/engine/**
+          filters:
+            - name: AuthorizationFilter
+
+        # Real-time voice pipeline: proxies the WebSocket straight to the
+        # engine's /media-stream, keeping session_id/domain/direction params.
+        # Browsers pass the token as ?access_token=…, which is stripped here.
+        - id: voice-engine-media-stream
+          uri: ${VAYVORA_ENGINE_WS_URL:wss://vayvora-ai-calling-ai-pzf9.onrender.com}
+          predicates:
+            - Path=/api/v1/media-stream
+          filters:
+            - name: AuthorizationFilter
+            - SetPath=/media-stream
+
         - id: campaign-service
-          uri: http://campaign-service:8005
+          uri: ${CAMPAIGN_SERVICE_URL:http://campaign-service:8005}
           predicates:
             - Path=/api/v1/campaigns/**
           filters:
             - name: AuthorizationFilter
-            - StripPrefix=2
-        
+
         - id: analytics-service
-          uri: http://analytics-service:8006
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics-service:8006}
           predicates:
             - Path=/api/v1/analytics/**
           filters:
             - name: AuthorizationFilter
-            - StripPrefix=2
-        
+
         - id: knowledge-service
-          uri: http://knowledge-service:8007
+          uri: ${KNOWLEDGE_SERVICE_URL:http://knowledge-service:8007}
           predicates:
             - Path=/api/v1/knowledge/**
           filters:
             - name: AuthorizationFilter
-            - StripPrefix=2
+
+vayvora:
+  auth:
+    # Must match auth-service's jwt.secret (HS256, at least 32 bytes).
+    jwt-secret: ${JWT_SECRET:your_super_secret_jwt_key_change_in_production}
+    # Set GATEWAY_AUTH_ENABLED=false only for local development.
+    enabled: ${GATEWAY_AUTH_ENABLED:true}
 
 server:
   port: 8000
@@ -57,4 +87,4 @@ server:
 logging:
   level:
     root: INFO
-    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO

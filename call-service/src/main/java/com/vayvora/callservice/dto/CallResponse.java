@@ -23,6 +23,10 @@ public class CallResponse {
     private Integer leadScore;
     private Integer duration;
     private String recordingUrl;
+    /** Conversational engine session handling this call. */
+    private String engineSessionId;
+    /** WebSocket URL for streaming the call's PCM16 audio to the voice engine. */
+    private String mediaStreamUrl;
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
     private LocalDateTime createdAt;

@@ -8,22 +8,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Step 5 - Checkout Source Code
       - name: Checkout code
         uses: actions/checkout@v4
-       # Step 6 - Dependency Installation
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-        node-version: '20'
-      - name: Install dependencies
-        run: npm install
-        # Step 7 - Static Code Analysis
-      - name: Lint
-        run: npm run lint
-        # Step 8 - Build
-      - name: Build application
-        run: npm run build
-      # Step 10 - Security & Vulnerability Scan
-      - name: Security Audit
-        run: npm audit --audit-level=high
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Compiles every module, runs the unit tests and packages the services.
+      - name: Build and test
+        run: mvn -B verify
+
+      - name: Dependency vulnerability scan
+        uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'

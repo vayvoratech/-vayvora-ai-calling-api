@@ -3,11 +3,19 @@ package com.vayvora.callservice.service;
 import com.vayvora.callservice.dto.InitiateCallRequest;
 import com.vayvora.callservice.dto.CallResponse;
 import com.vayvora.callservice.dto.UpdateCallStatusRequest;
+import com.vayvora.callservice.engine.VoiceEngineClient;
+import com.vayvora.callservice.engine.dto.EngineSessionRequest;
+import com.vayvora.callservice.engine.dto.EngineSessionResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
+@RequiredArgsConstructor
 public class CallService {
-    
+    private final VoiceEngineClient voiceEngine;
+
     public CallResponse initiateCall(InitiateCallRequest request) throws Exception {
         // 1. Generate unique call ID
         // 2. Validate agent exists and is published
@@ -16,8 +24,39 @@ public class CallService {
         // 5. Cache call status in Redis (1-hour TTL)
         // 6. Publish CALL_INITIATED event to Kafka with call details
         // 7. Broadcast via WebSocket to connected listeners
-        // 8. Return call response with ID
-        return CallResponse.builder().build();
+
+        // 8. Open the AI conversation session that will handle the call
+        Map<String, Object> vars = request.getVariables() == null ? Map.of() : request.getVariables();
+        String domain = stringVar(vars, "domain");
+        EngineSessionResponse session = voiceEngine.createSession(EngineSessionRequest.builder()
+                .direction("outbound")
+                .domain(domain)
+                .callerPhone(request.getContactPhoneNumber())
+                .contactName(stringVar(vars, "contact_name"))
+                .agentName(stringVar(vars, "agent_name"))
+                .callerEmail(stringVar(vars, "contact_email"))
+                .callerCompany(stringVar(vars, "contact_company"))
+                .campaignObjective(stringVar(vars, "campaign_objective"))
+                .knownPurpose(stringVar(vars, "known_purpose"))
+                .build());
+
+        // 9. Return call response with ID and the engine session to stream audio into
+        return CallResponse.builder()
+                .organizationId(request.getOrganizationId())
+                .agentId(request.getAgentId())
+                .campaignId(request.getCampaignId())
+                .contactPhoneNumber(request.getContactPhoneNumber())
+                .status("INITIATED")
+                .engineSessionId(session.getSessionId())
+                .mediaStreamUrl(voiceEngine.mediaStreamUrl(session.getSessionId(),
+                        session.getDomain(), "outbound", request.getContactPhoneNumber(),
+                        stringVar(vars, "contact_name")))
+                .build();
+    }
+
+    private static String stringVar(Map<String, Object> vars, String key) {
+        Object v = vars.get(key);
+        return v == null || v.toString().isBlank() ? null : v.toString();
     }
 
     public CallResponse getCall(String callId, Long organizationId) throws Exception {

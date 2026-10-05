@@ -2,28 +2,37 @@ spring:
   application:
     name: call-service
   datasource:
-    url: jdbc:postgresql://postgres:5432/vayvora_db
-    username: vayvora
-    password: vayvora_secure_password
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/vayvora_db}
+    username: ${DB_USERNAME:vayvora}
+    password: ${DB_PASSWORD:vayvora_secure_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
-  redis:
-    host: redis
-    port: 6379
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: 6379
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     producer:
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
       group-id: call-service-group
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+vayvora:
+  engine:
+    # Unified AI Voice Agent & Conversational Engine
+    base-url: ${VAYVORA_ENGINE_URL:https://vayvora-ai-calling-ai-pzf9.onrender.com}
+    ws-base-url: ${VAYVORA_ENGINE_WS_URL:wss://vayvora-ai-calling-ai-pzf9.onrender.com}
+    default-domain: ${VAYVORA_ENGINE_DOMAIN:vayvora}
+    connect-timeout: 10s
+    # The hosted engine cold-starts after idling; first calls can take ~60s.
+    read-timeout: 90s
 
 server:
   port: 8004
-  servlet:
-    context-path: /api/v1
 
 logging:
   level:
